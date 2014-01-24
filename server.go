@@ -1971,6 +1971,7 @@ func (srv *Server) ContainerStart(job *engine.Job) engine.Status {
 		job.Errorf("Cannot start container %s: %s", name, err)
 		return engine.StatusErr
 	}
+	srv.runtime.Stats().Add("running", 1)
 	srv.LogEvent("start", container.ID, runtime.repositories.ImageName(container.Image))
 
 	return engine.StatusOK
@@ -1991,6 +1992,7 @@ func (srv *Server) ContainerStop(job *engine.Job) engine.Status {
 			job.Errorf("Cannot stop container %s: %s\n", name, err)
 			return engine.StatusErr
 		}
+		srv.runtime.Stats().Add("running", -1)
 		srv.LogEvent("stop", container.ID, srv.runtime.repositories.ImageName(container.Image))
 	} else {
 		job.Errorf("No such container: %s\n", name)

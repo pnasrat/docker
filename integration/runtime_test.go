@@ -934,3 +934,38 @@ func TestDestroyWithInitLayer(t *testing.T) {
 		t.Fatal("Container's init layer should not exist in the driver")
 	}
 }
+
+func TestRuntimeListRunning(t *testing.T) {
+	runtime := mkRuntime(t)
+	defer nuke(runtime)
+	container, _, err := mkContainer(runtime, []string{"-m", "33554432", "-c", "1000", "-i", "_", "/bin/cat"}, t)
+	defer runtime.Destroy(container)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(runtime.ListRunning()) != 0 {
+		t.Errorf("Expected 0 containers, %v found", len(runtime.List()))
+	}
+
+	if err := container.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Give some time to the process to start
+	container.WaitTimeout(500 * time.Millisecond)
+
+	if len(runtime.ListRunning()) != 1 {
+		t.Errorf("Expected 1 containers, %v found", len(runtime.List()))
+	}
+
+	if err := container.Stop(10); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(runtime.ListRunning()) != 0 {
+		t.Errorf("Expected 0 containers, %v found", len(runtime.List()))
+	}
+
+}

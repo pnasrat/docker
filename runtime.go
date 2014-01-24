@@ -2,6 +2,7 @@ package docker
 
 import (
 	"container/list"
+	"expvar"
 	"fmt"
 	"github.com/dotcloud/docker/archive"
 	"github.com/dotcloud/docker/execdriver"
@@ -40,6 +41,7 @@ type Runtime struct {
 	repository     string
 	sysInitPath    string
 	containers     *list.List
+	containerStats *expvar.Map
 	networkManager *NetworkManager
 	graph          *Graph
 	repositories   *TagStore
@@ -53,6 +55,10 @@ type Runtime struct {
 	execDriver     execdriver.Driver
 }
 
+func (runtime *Runtime) Stats() *expvar.Map {
+	return runtime.containerStats
+}
+
 // List returns an array of all containers registered in the runtime.
 func (runtime *Runtime) List() []*Container {
 	containers := new(History)
@@ -60,6 +66,17 @@ func (runtime *Runtime) List() []*Container {
 		containers.Add(e.Value.(*Container))
 	}
 	return *containers
+}
+
+func (runtime *Runtime) ListRunning() []*Container {
+	running := new(History)
+	for e := runtime.containers.Front(); e != nil; e = e.Next() {
+		container := e.Value.(*Container)
+		if container.State.IsRunning() {
+			running.Add(container)
+		}
+	}
+	return *running
 }
 
 func (runtime *Runtime) getContainerElement(id string) *list.Element {
@@ -180,6 +197,7 @@ func (runtime *Runtime) Register(container *Container) error {
 			if err := container.allocateNetwork(); err != nil {
 				return err
 			}
+			runtime.containerStats.Add("running", 1)
 
 			container.waitLock = make(chan struct{})
 			go container.monitor(nil)
@@ -719,6 +737,7 @@ func NewRuntimeFromDirectory(config *DaemonConfig) (*Runtime, error) {
 	runtime := &Runtime{
 		repository:     runtimeRepo,
 		containers:     list.New(),
+		containerStats: expvar.NewMap("containers"),
 		networkManager: netManager,
 		graph:          g,
 		repositories:   repositories,

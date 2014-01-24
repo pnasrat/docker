@@ -350,6 +350,11 @@ func TestStart(t *testing.T) {
 	if !container.State.IsRunning() {
 		t.Errorf("Container should be running")
 	}
+
+	if runtime.Stats().Get("running").String() != "1" {
+		t.Errorf("Container Stats should list one running container")
+	}
+
 	if err := container.Start(); err == nil {
 		t.Fatalf("A running container should be able to be started")
 	}
@@ -357,6 +362,31 @@ func TestStart(t *testing.T) {
 	// Try to avoid the timeout in destroy. Best effort, don't check error
 	cStdin.Close()
 	container.WaitTimeout(2 * time.Second)
+}
+
+func TestStop(t *testing.T) {
+	runtime := mkRuntime(t)
+	defer nuke(runtime)
+	container, _, _ := mkContainer(runtime, []string{"-i", "_", "/bin/cat"}, t)
+	defer runtime.Destroy(container)
+
+	_, err := container.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := container.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := container.Stop(0); err != nil {
+		t.Fatal(err)
+	}
+
+	if runtime.Stats().Get("runnning").String() != "0" {
+		t.Fatalf("Expected 0 running containers after stop")
+	}
+
 }
 
 func TestCpuShares(t *testing.T) {
