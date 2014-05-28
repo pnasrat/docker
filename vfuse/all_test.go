@@ -843,3 +843,42 @@ func TestMknod(t *testing.T) {
 		t.Fatal("Expected to be socket; got %v", fi.Mode())
 	}
 }
+
+// Chown
+func init() { addWorldTest("TestChown") }
+func TestChown(t *testing.T) {
+	w := getWorld(t)
+	defer w.release()
+
+	euid := os.Geteuid()
+	egid := os.Getegid()
+	groups, err := os.Getgroups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gid int = -1
+	for _, gid = range groups {
+		if gid != egid {
+			break
+		}
+	}
+	if gid == -1 {
+		t.Fatal("Could not find additional group for %q groups: %v", gid, groups)
+	}
+	w.writeFile(w.cpath("chown/file"), "123456")
+
+	if err := syscall.Chown(w.fpath("chown/file"), euid, gid); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(w.cpath("chown/file"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sys, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		t.Fatal("Failed to get Stat info from file")
+	}
+	if int(sys.Gid) != gid {
+		t.Fatal("Expected group id %q not actual group id %q", gid, int(sys.Gid))
+	}
+}

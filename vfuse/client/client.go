@@ -135,6 +135,8 @@ func (s *Server) Run() {
 			res, err = s.handleTruncateRequest(m)
 		case *pb.MknodRequest:
 			res, err = s.handleMknodRequest(m)
+		case *pb.ChownRequest:
+			res, err = s.handleChownRequest(m)
 		default:
 			log.Fatalf("unhandled request type %T", p.Body)
 		}
@@ -473,4 +475,21 @@ func (s *Server) handleMknodRequest(req *pb.MknodRequest) (proto.Message, error)
 		vlogf("Mknod(%q): %v", req.GetName(), err)
 	}
 	return &pb.MknodResponse{Err: mapError(err)}, nil
+}
+
+func (s *Server) handleChownRequest(req *pb.ChownRequest) (proto.Message, error) {
+	if !s.vol.Writable {
+		return &pb.ChownResponse{Err: errRO}, nil
+	}
+	name := req.GetName()
+	if !validPath(name) {
+		return &pb.ChownResponse{Err: errBadPath}, nil
+	}
+	uid := int(req.GetUid())
+	gid := int(req.GetGid())
+	err := syscall.Chown(filepath.Join(s.vol.Root, filepath.FromSlash(name)), uid, gid)
+	if err != nil {
+		vlogf("Chown(%q, %d, %d): %v", name, uid, gid, err)
+	}
+	return &pb.ChownResponse{Err: mapError(err)}, nil
 }

@@ -461,6 +461,25 @@ func (fs *FS) StatFs(name string) *fuse.StatfsOut {
 	return out
 }
 
+func (fs *FS) Chown(name string, uid, gid uint32, context *fuse.Context) fuse.Status {
+	vlogf("fs.Chown()")
+	resc, err := fs.sendPacket(&pb.ChownRequest{
+		Name: &name,
+		Uid:  proto.Uint32(uid),
+		Gid:  proto.Uint32(gid),
+	})
+	if err != nil {
+		vlogf("EIO fs.Chown()")
+		return fuse.EIO
+	}
+	res, ok := (<-resc).(*pb.ChownResponse)
+	if !ok {
+		vlogf("fs.Chown() = EIO due to wrong type")
+		return fuse.EIO
+	}
+	return fuseError(res.Err)
+}
+
 // file implements http://godoc.org/github.com/hanwen/go-fuse/fuse/nodefs#File
 //
 // It represents an open file on the filesystem host, identified by
